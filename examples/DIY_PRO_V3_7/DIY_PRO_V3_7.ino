@@ -14,8 +14,11 @@ The codes needs the following libraries installed:
 “U8g2” by oliver tested with version 2.33.15
 "Sensirion I2C SGP41" by Sensation Version 0.1.0
 "Sensirion Gas Index Algorithm" by Sensation Version 3.2.2
+"HomeKit-ESP8266" by Mixiaoxiao Version 1.4.0 (from GitHub)
 
 Configuration:
+Set "Tools" > "CPU Frequency" to 160MHz.
+
 Please set in the code below the configuration parameters.
 
 If you have any questions please visit our forum at https://forum.airgradient.com/
@@ -52,7 +55,8 @@ NOxGasIndexAlgorithm nox_algorithm;
 uint16_t conditioning_s = 10;
 
 // for persistent saving and loading
-int addr = 0;
+// 0-1407 is used by Arduino-KomeKit-ESP8266
+int addr = 1408;
 byte value;
 
 // Display bottom right
@@ -114,6 +118,23 @@ int currentState;
 unsigned long pressedTime  = 0;
 unsigned long releasedTime = 0;
 
+
+#define USE_HOMEKIT
+
+#ifdef USE_HOMEKIT
+#include <arduino_homekit_server.h>
+extern "C" homekit_server_config_t config;
+extern "C" homekit_characteristic_t cha_airquality;
+extern "C" homekit_characteristic_t cha_pm25;
+extern "C" homekit_characteristic_t cha_co2;
+extern "C" homekit_characteristic_t cha_voc;
+extern "C" homekit_characteristic_t cha_no2;
+extern "C" homekit_characteristic_t cha_temperature;
+extern "C" homekit_characteristic_t cha_humidity;
+static uint32_t next_report_millis = 0;
+#endif // USE_HOMEKIT
+
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Hello");
@@ -121,7 +142,7 @@ void setup() {
   u8g2.begin();
   //u8g2.setDisplayRotation(U8G2_R0);
 
-  EEPROM.begin(512);
+  EEPROM.begin(2048);
   delay(500);
 
   buttonConfig = String(EEPROM.read(addr)).toInt();
@@ -144,6 +165,25 @@ void setup() {
      connectToWifi();
   }
 
+#ifdef USE_HOMEKIT
+  updateOLED2("Setting up", "Homekit", "");
+
+  // clear the EEPROM if it isn't empty or it starts with anything but "HAP"
+  char check[4];
+  for (uint8_t i=0; i < 4; i++) {
+    check[i] = EEPROM.read(i);
+  }
+  check[3] = '\0';
+  if (strcmp(check, "HAP") != 0 && strlen(check) > 0) {
+    Serial.println("Clearing Homekit EEPROM region");
+    for (uint16_t addr=0; addr < 1408; addr++) {
+      EEPROM.write(addr, 0);
+    }
+  }
+
+  arduino_homekit_setup(&config);
+#endif // USE_HOMEKIT
+
   updateOLED2("Warming up the", "sensors.", "");
   sgp41.begin(Wire);
   ag.CO2_Init();
@@ -159,7 +199,36 @@ void loop() {
   updatePm25();
   updateTempHum();
   sendToServer();
+
+#ifdef USE_HOMEKIT
+  updateHomeKit();
+#endif // USE_HOMEHIT
 }
+
+#ifdef USE_HOMEKIT
+void updateHomeKit() {
+  arduino_homekit_loop();
+
+  const uint32_t now = millis();
+  if (now > next_report_millis) {
+    // report sensor values every 10 seconds
+    next_report_millis = now + 10 * 1000;
+
+    cha_pm25.value.float_value = pm25;
+    homekit_characteristic_notify(&cha_pm25, cha_pm25.value);
+    cha_co2.value.float_value = Co2;
+    homekit_characteristic_notify(&cha_co2, cha_co2.value);
+    cha_voc.value.float_value = TVOC;
+    homekit_characteristic_notify(&cha_voc, cha_voc.value);
+    cha_no2.value.float_value = NOX;
+    homekit_characteristic_notify(&cha_no2, cha_no2.value);
+    cha_temperature.value.float_value = temp;
+    homekit_characteristic_notify(&cha_temperature, cha_temperature.value);
+    cha_humidity.value.float_value = hum;
+    homekit_characteristic_notify(&cha_humidity, cha_humidity.value);
+  }
+}
+#endif // USE_HOMEKIT
 
 void inConf(){
   setConfig();

@@ -1,8 +1,24 @@
-AirGradient Arduino Library for ESP8266 (Wemos D1 MINI)
-=====================================================================================================
+# airgradient-homekit
 
-Build your own low cost air quality sensor with optional display measuring PM2.5, CO2, Temperature and Humidity. 
+Experimental Apple HomeKit-compatible firmware for [airgradienthq/arduino](https://github.com/airgradienthq/arduino), based on [Mixiaoxiao/Arduino-HomeKit-ESP8266](https://github.com/Mixiaoxiao/Arduino-HomeKit-ESP8266/).
 
-This library makes it easy to read the sensor data from the Plantower PMS5003 PM2.5 sensor, the Senseair S8 and the SHT30/31 Temperature and Humidity sensor. Visit our DIY section for detailed build instructions and PCB layout.
 
-https://www.airgradient.com/open-airgradient/instructions/
+## Usage
+
+* Load the DIY_PRO_V3_7 example
+* Set the CPU Frequency (in "Tools") to 160 MHz.
+* Upload
+* In the "Home" app, add an accessory, click "More options...".
+* The "AirGradient DIY PRO" should show up in the list of nearby devices.
+* Pair with code 1111-1111.
+
+
+## Issues
+
+* The ESP8266 is easily running out of heap memory, causing frequent reboots.
+
+
+## Screenshots
+
+![Screenshot](homekit_airgradient1.png)
+![Screenshot](homekit_airgradient2.png)
