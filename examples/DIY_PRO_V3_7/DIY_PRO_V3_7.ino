@@ -409,11 +409,15 @@ void updateOLED() {
 
      String ln2 = "TVOC:" + String(TVOC) + " NOX:" + String(NOX);
 
+     // XXX: DEBUG
+     ln3 = String("M:" + String(ESP.getFreeHeap()) + " T:" + String(millis()/1000));
+     /*
       if (inF) {
         ln3 = "F:" + String((temp* 9 / 5) + 32) + " H:" + String(hum)+"%";
         } else {
         ln3 = "C:" + String(temp) + " H:" + String(hum)+"%";
        }
+     */
      updateOLED2(ln1, ln2, ln3);
    }
 }
