@@ -10,10 +10,10 @@ Build Instructions: https://www.airgradient.com/open-airgradient/instructions/di
 Kits (including a pre-soldered version) are available: https://www.airgradient.com/open-airgradient/kits/
 
 The codes needs the following libraries installed:
-“WifiManager by tzapu, tablatronix” tested with version 2.0.11-beta
-“U8g2” by oliver tested with version 2.32.15
+“WifiManager by tzapu, tablatronix” tested with version 2.0.15-rc1
+“U8g2” by oliver tested with version 2.33.15
 "Sensirion I2C SGP41" by Sensation Version 0.1.0
-"Sensirion Gas Index Algorithm" by Sensation Version 3.2.1
+"Sensirion Gas Index Algorithm" by Sensation Version 3.2.2
 
 Configuration:
 Please set in the code below the configuration parameters.
