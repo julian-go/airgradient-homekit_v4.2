@@ -23,3 +23,4 @@ Experimental Apple HomeKit-compatible firmware for [airgradienthq/arduino](https
 
 ![Screenshot](homekit_airgradient1.png)
 ![Screenshot](homekit_airgradient2.png)
+![Screenshot](homekit_airgradient3.png)
