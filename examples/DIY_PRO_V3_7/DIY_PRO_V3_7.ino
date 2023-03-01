@@ -179,6 +179,7 @@ void setup() {
     for (uint16_t addr=0; addr < 1408; addr++) {
       EEPROM.write(addr, 0);
     }
+    EEPROM.commit();
   }
 
   arduino_homekit_setup(&config);
