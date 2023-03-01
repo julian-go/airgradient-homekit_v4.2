@@ -244,7 +244,7 @@ void inConf(){
     long pressDuration = releasedTime - pressedTime;
     if( pressDuration < 1000 ) {
       buttonConfig=buttonConfig+1;
-      if (buttonConfig>7) buttonConfig=0;
+      if (buttonConfig>8) buttonConfig=0;
     }
   }
 
@@ -258,7 +258,17 @@ void inConf(){
 //          updateOLED2("Starting", "CO2", "Calibration");
 //          delay(1000);
 //          Co2Calibration();
-//       } else {
+        if (buttonConfig == 8) {
+          updateOLED2("Clearing", "HomeKit", "Pairing");
+          delay(1000);
+          for (uint16_t addr=0; addr < 1408; addr++) {
+            EEPROM.write(addr, 0);
+          }
+          EEPROM.commit();
+          updateOLED2("Done.", "Rebooting", "");
+          delay(1000);
+          ESP.restart();
+        } else {
           updateOLED2("Saved", "Release", "Button Now");
           delay(1000);
           updateOLED2("Rebooting", "in", "5 seconds");
@@ -267,7 +277,7 @@ void inConf(){
           EEPROM.commit();
           delay(1000);
           ESP.restart();
- //       }
+        }
     }
 
   }
@@ -330,6 +340,9 @@ void setConfig() {
   // if (buttonConfig == 8) {
   //  updateOLED2("CO2", "Manual", "Calibration");
   // }
+   if (buttonConfig == 8) {
+    updateOLED2("Remove", "HomeKit", "Pairing");
+  }
 }
 
 void updateTVOC()
