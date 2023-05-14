@@ -218,20 +218,37 @@ void updateHomeKit() {
     cha_pm25.value.float_value = pm25;
     homekit_characteristic_notify(&cha_pm25, cha_pm25.value);
 
-    // As per US EPA AQI
-    if (pm25 <= 0) {
-      cha_airquality.value.int_value = 0;  // Unknown
-    } else if (pm25 <= 12) {
-      cha_airquality.value.int_value = 1;  // Excellent
-    } else if (pm25 <= 35) {
-      cha_airquality.value.int_value = 2;  // Good
-    } else if (pm25 <= 55) {
-      cha_airquality.value.int_value = 3;  // Fair
-    } else if (pm25 <= 150) {
-      cha_airquality.value.int_value = 4;  // Inferior
-    } else if (pm25 > 150) {
-      cha_airquality.value.int_value = 5;  // Poor
+    // attempt to come up with an air quality index
+    cha_airquality.value.int_value = 0;  // Unknown
+    // PM2.5 (as per US EPA AQ)
+    if (pm25 > 0) {
+      if (pm25 <= 12) {  // Excellent
+        cha_airquality.value.int_value = 1;
+      } else if (pm25 <= 35) {  // Good
+        cha_airquality.value.int_value = 2;
+      } else if (pm25 <= 55) {  // Fair
+        cha_airquality.value.int_value = 3;
+      } else if (pm25 <= 150) {  // Inferior
+        cha_airquality.value.int_value = 4;
+      } else if (pm25 > 150) {  // Poor
+        cha_airquality.value.int_value = 5;
+      }
     }
+    // CO2 (as per Wisconsin Department of Health Services, Breeze Technologies)
+    if (Co2 > 0) {
+      if (Co2 <= 419) {  // Excellent ("average atmospheric concentration")
+        cha_airquality.value.int_value = max(1, cha_airquality.value.int_value);
+      } else if (Co2 <= 1000) {  // Good ("occupied spaces with good air exchange")
+        cha_airquality.value.int_value = max(2, cha_airquality.value.int_value);
+      } else if (Co2 <= 2000) {  // Fair ("complaints of drowsiness and poor air")
+        cha_airquality.value.int_value = max(3, cha_airquality.value.int_value);
+      } else if (Co2 <= 5000) {  // Inferior ("headaches, sleepiness, and stagnant, stale, stuffy air")
+        cha_airquality.value.int_value = max(4, cha_airquality.value.int_value);
+      } else if (Co2 > 5000) {  // Poor ("unusual air conditions where high levels of other gases could also be present")
+        cha_airquality.value.int_value = max(5, cha_airquality.value.int_value);
+      }
+    }
+    // XXX: include TVOC & NOX when available?
     homekit_characteristic_notify(&cha_airquality, cha_airquality.value);
 
     cha_co2.value.float_value = Co2;
