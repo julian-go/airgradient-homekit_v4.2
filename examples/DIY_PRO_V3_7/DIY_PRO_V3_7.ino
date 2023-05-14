@@ -217,6 +217,23 @@ void updateHomeKit() {
 
     cha_pm25.value.float_value = pm25;
     homekit_characteristic_notify(&cha_pm25, cha_pm25.value);
+
+    // As per US EPA AQI
+    if (pm25 <= 0) {
+      cha_airquality.value.int_value = 0;  // Unknown
+    } else if (pm25 <= 12) {
+      cha_airquality.value.int_value = 1;  // Excellent
+    } else if (pm25 <= 35) {
+      cha_airquality.value.int_value = 2;  // Good
+    } else if (pm25 <= 55) {
+      cha_airquality.value.int_value = 3;  // Fair
+    } else if (pm25 <= 150) {
+      cha_airquality.value.int_value = 4;  // Inferior
+    } else if (pm25 > 150) {
+      cha_airquality.value.int_value = 5;  // Poor
+    }
+    homekit_characteristic_notify(&cha_airquality, cha_airquality.value);
+
     cha_co2.value.float_value = Co2;
     homekit_characteristic_notify(&cha_co2, cha_co2.value);
     cha_voc.value.float_value = TVOC;
