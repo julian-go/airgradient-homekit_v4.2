@@ -5,7 +5,7 @@ This is the code for the AirGradient DIY PRO Air Quality Sensor with an ESP8266 
 
 It is a high quality sensor showing PM2.5, CO2, Temperature and Humidity on a small display and can send data over Wifi.
 
-Build Instructions: https://www.airgradient.com/open-airgradient/instructions/diy-pro/
+Build Instructions: https://www.airgradient.com/open-airgradient/instructions/diy-pro-v37/
 
 Kits (including a pre-soldered version) are available: https://www.airgradient.com/open-airgradient/kits/
 
@@ -26,7 +26,7 @@ If you have any questions please visit our forum at https://forum.airgradient.co
 If you are a school or university contact us for a free trial on the AirGradient platform.
 https://www.airgradient.com/
 
-License: CC BY-NC 4.0 Attribution-NonCommercial 4.0 International
+CC BY-SA 4.0 Attribution-ShareAlike 4.0 International License
 
 */
 
@@ -60,10 +60,10 @@ int addr = 1408;
 byte value;
 
 // Display bottom right
-//U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 // Replace above if you have display on top left
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, /* reset=*/ U8X8_PIN_NONE);
+//U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, /* reset=*/ U8X8_PIN_NONE);
 
 
 // CONFIGURATION START
@@ -112,7 +112,7 @@ unsigned long previousTempHum = 0;
 float temp = 0;
 int hum = 0;
 
-int buttonConfig=0;
+int buttonConfig=4;
 int lastState = LOW;
 int currentState;
 unsigned long pressedTime  = 0;
@@ -138,7 +138,6 @@ static uint32_t next_report_millis = 0;
 void setup() {
   Serial.begin(115200);
   Serial.println("Hello");
-  u8g2.setBusClock(100000);
   u8g2.begin();
   //u8g2.setDisplayRotation(U8G2_R0);
 
@@ -185,7 +184,27 @@ void setup() {
   arduino_homekit_setup(&config);
 #endif // USE_HOMEKIT
 
-  updateOLED2("Warming up the", "sensors.", "");
+#ifdef USE_HOMEKIT
+  updateOLED2("Setting up", "Homekit", "");
+
+  // clear the EEPROM if it isn't empty or it starts with anything but "HAP"
+  char check[4];
+  for (uint8_t i=0; i < 4; i++) {
+    check[i] = EEPROM.read(i);
+  }
+  check[3] = '\0';
+  if (strcmp(check, "HAP") != 0 && strlen(check) > 0) {
+    Serial.println("Clearing Homekit EEPROM region");
+    for (uint16_t addr=0; addr < 1408; addr++) {
+      EEPROM.write(addr, 0);
+    }
+    EEPROM.commit();
+  }
+
+  arduino_homekit_setup(&config);
+#endif // USE_HOMEKIT
+
+  updateOLED2("Warming Up", "Serial Number:", String(ESP.getChipId(), HEX));
   sgp41.begin(Wire);
   ag.CO2_Init();
   ag.PMS_Init();
@@ -370,6 +389,9 @@ void setConfig() {
        inF = true;
       inUSAQI = true;
   }
+
+
+
   // to do
   // if (buttonConfig == 8) {
   //  updateOLED2("CO2", "Manual", "Calibration");
@@ -515,28 +537,14 @@ void sendToServer() {
    WiFiManager wifiManager;
    //WiFi.disconnect(); //to delete previous saved hotspot
    String HOTSPOT = "AG-" + String(ESP.getChipId(), HEX);
-   updateOLED2("60s to connect", "to Wifi Hotspot", HOTSPOT);
-   wifiManager.setTimeout(60);
-
-
-   WiFiManagerParameter custom_text("<p>This is just a text paragraph</p>");
-   wifiManager.addParameter(&custom_text);
-
-   WiFiManagerParameter parameter("parameterId", "Parameter Label", "default value", 40);
-   wifiManager.addParameter(&parameter);
-
-
-   Serial.println("Parameter 1:");
-   Serial.println(parameter.getValue());
+   updateOLED2("90s to connect", "to Wifi Hotspot", HOTSPOT);
+   wifiManager.setTimeout(90);
 
    if (!wifiManager.autoConnect((const char * ) HOTSPOT.c_str())) {
      updateOLED2("booting into", "offline mode", "");
      Serial.println("failed to connect and hit timeout");
      delay(6000);
    }
-
-   Serial.println("Parameter 2:");
-   Serial.println(parameter.getValue());
 
 }
 
