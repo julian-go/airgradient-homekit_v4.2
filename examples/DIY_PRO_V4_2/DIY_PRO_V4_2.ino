@@ -49,6 +49,17 @@ CC BY-SA 4.0 Attribution-ShareAlike 4.0 International License
 
 #include <U8g2lib.h>
 
+constexpr uint32_t kShortPressDuration = 1000;
+constexpr uint32_t kLongPressDuration = 4000;
+
+enum ConfigState {
+  TempC_PMug = 0,
+  TempC_PMaqi = 1,
+  TempF_PMug = 2,
+  TempF_PMaqi = 3,
+  ClearHomekit = 4
+};
+
 AirGradient ag = AirGradient();
 SensirionI2CSgp41 sgp41;
 VOCGasIndexAlgorithm voc_algorithm;
@@ -85,7 +96,7 @@ boolean inUSAQI = false;
 boolean displayTop = true;
 
 // set to true if you want to connect to wifi. You have 60 seconds to connect. Then it will go into an offline mode.
-boolean connectWIFI=true;
+boolean connectWIFI = true;
 
 // CONFIGURATION END
 
@@ -119,7 +130,7 @@ unsigned long previousTempHum = 0;
 float temp = 0;
 int hum = 0;
 
-int buttonConfig=0;
+ConfigState configState = ConfigState::TempC_PMug;
 int lastState = LOW;
 int currentState;
 unsigned long pressedTime  = 0;
@@ -153,22 +164,27 @@ void setup() {
   EEPROM.begin(2048);
   delay(500);
 
-  buttonConfig = String(EEPROM.read(addr)).toInt();
-  if (buttonConfig>3) buttonConfig=0;
+  // Load configuration from EEPROM and clamp to valid values -> homekit reset should never be in EEPROM
+  int readState = String(EEPROM.read(addr)).toInt();
+  configState = static_cast<ConfigState>(max(readState, 0));
+  configState = static_cast<ConfigState>(min(readState, (int) ConfigState::TempF_PMaqi));
+
   delay(400);
   setConfig();
-  Serial.println("buttonConfig: "+String(buttonConfig));
-   updateOLED2("Press Button", "Now for", "Config Menu");
-    delay(2000);
+  Serial.println("buttonConfig: "+String(configState));
   pinMode(D7, INPUT_PULLUP);
-  currentState = digitalRead(D7);
-  if (currentState == LOW)
-  {
-    updateOLED2("Entering", "Config Menu", "");
-    delay(3000);
-    lastState = HIGH;
-    setConfig();
-    inConf();
+  for (int timer = 5; timer > 0; timer--) {
+    updateOLED2("Press Button", "for Config Menu", String(timer) + "...");
+    currentState = digitalRead(D7);
+    if (currentState == LOW) {
+      updateOLED2("Entering", "Config Menu", "");
+      delay(3000);
+      lastState = HIGH;
+      setConfig();
+      inConf();
+      break;
+    }
+    delay(1000);
   }
 
   if (connectWIFI)
@@ -196,7 +212,7 @@ void setup() {
   arduino_homekit_setup(&config);
 #endif // USE_HOMEKIT
 
-  updateOLED2("Warming Up", "Serial Number:", String(ESP.getChipId(), HEX));
+  updateOLED2("Warming up!", "", "S/N: " + String(ESP.getChipId(), HEX));
   sgp41.begin(Wire);
   ag.CO2_Init();
   ag.PMS_Init();
@@ -279,85 +295,83 @@ void updateHomeKit() {
 void inConf(){
   setConfig();
   currentState = digitalRead(D7);
+  
+  const bool buttonDown = lastState == HIGH && currentState == LOW;
+  const bool buttonHeld = lastState == LOW && currentState == LOW;
+  const bool buttonReleased = lastState == LOW && currentState == HIGH;
 
-  if (currentState){
-    Serial.println("currentState: high");
-  } else {
-    Serial.println("currentState: low");
-  }
-
-  if(lastState == HIGH && currentState == LOW) {
+  if (buttonDown) {
     pressedTime = millis();
-  }
-
-  else if(lastState == LOW && currentState == HIGH) {
+  } else if (buttonReleased) {
     releasedTime = millis();
     long pressDuration = releasedTime - pressedTime;
-    if( pressDuration < 1000 ) {
-      buttonConfig=buttonConfig+1;
-      if (buttonConfig>3) buttonConfig=0;
+    if (pressDuration < kShortPressDuration) {
+      Serial.println("Increment");
+      configState = static_cast<ConfigState>(configState + 1);
+      if (configState > ConfigState::ClearHomekit) {
+        configState = ConfigState::TempC_PMug;
+      }
     }
-  }
-
-  if (lastState == LOW && currentState == LOW){
-     long passedDuration = millis() - pressedTime;
-      if( passedDuration > 4000 ) {
-        // to do
-//        if (buttonConfig==4) {
-//          updateOLED2("Saved", "Release", "Button Now");
-//          delay(1000);
-//          updateOLED2("Starting", "CO2", "Calibration");
-//          delay(1000);
-//          Co2Calibration();
-//       } else {
-          updateOLED2("Saved", "Release", "Button Now");
-          delay(1000);
-          updateOLED2("Rebooting", "in", "5 seconds");
-          delay(5000);
-          EEPROM.write(addr, char(buttonConfig));
-          EEPROM.commit();
-          delay(1000);
-          ESP.restart();
- //       }
+  } else if (buttonHeld){
+    long passedDuration = millis() - pressedTime;
+    if (passedDuration > kLongPressDuration) {
+      if (configState == ConfigState::ClearHomekit) {
+        updateOLED2("Clearing", "HomeKit", "Pairing");
+        delay(1000);
+        for (uint16_t addr=0; addr < 1408; addr++) {
+          EEPROM.write(addr, 0);
+        }
+        EEPROM.commit();
+      } else {
+        updateOLED2("Saved", "Release", "Button Now");
+        delay(1000);
+        EEPROM.write(addr, char(configState));
+        EEPROM.commit();
+      }
+      for (int timer = 5; timer > 0; timer--) {
+        updateOLED2("Rebooting", "in", String(timer) + "...");
+        delay(1000);
+      }
+      ESP.restart();
     }
-
   }
   lastState = currentState;
   delay(100);
   inConf();
 }
 
-
 void setConfig() {
-  if (buttonConfig == 0) {
-    updateOLED2("Temp. in C", "PM in ug/m3", "Long Press Saves");
+  switch (configState) {
+    case ConfigState::TempC_PMug:
+      updateOLED2("Temp. in C", "PM in ug/m3", "Long Press Saves");
       u8g2.setDisplayRotation(U8G2_R0);
       inF = false;
       inUSAQI = false;
-  }
-    if (buttonConfig == 1) {
-    updateOLED2("Temp. in C", "PM in US AQI", "Long Press Saves");
+      break;
+    case ConfigState::TempC_PMaqi:
+      updateOLED2("Temp. in C", "PM in US AQI", "Long Press Saves");
       u8g2.setDisplayRotation(U8G2_R0);
       inF = false;
       inUSAQI = true;
-  } else if (buttonConfig == 2) {
-    updateOLED2("Temp. in F", "PM in ug/m3", "Long Press Saves");
-    u8g2.setDisplayRotation(U8G2_R0);
+      break;
+    case ConfigState::TempF_PMug:
+      updateOLED2("Temp. in F", "PM in ug/m3", "Long Press Saves");
+      u8g2.setDisplayRotation(U8G2_R0);
       inF = true;
       inUSAQI = false;
-  } else  if (buttonConfig == 3) {
-    updateOLED2("Temp. in F", "PM in US AQI", "Long Press Saves");
+      break;
+    case ConfigState::TempF_PMaqi:
+      updateOLED2("Temp. in F", "PM in US AQI", "Long Press Saves");
       u8g2.setDisplayRotation(U8G2_R0);
-       inF = true;
+      inF = true;
       inUSAQI = true;
+      break;
+    case ConfigState::ClearHomekit:
+      updateOLED2("Long Press", "Clears", "HomeKit Pairing");
+      break;
+    default:
+      updateOLED2("Something", "went", "wrong");
   }
-
-
-
-  // to do
-  // if (buttonConfig == 8) {
-  //  updateOLED2("CO2", "Manual", "Calibration");
-  // }
 }
 
 void updateTVOC()
@@ -419,21 +433,12 @@ void updateTempHum()
 {
     if (currentMillis - previousTempHum >= tempHumInterval) {
       previousTempHum += tempHumInterval;
-
       if (sht.readSample()) {
-      Serial.print("SHT:\n");
-      Serial.print("  RH: ");
-      Serial.print(sht.getHumidity(), 2);
-      Serial.print("\n");
-      Serial.print("  T:  ");
-      Serial.print(sht.getTemperature(), 2);
-      Serial.print("\n");
-      temp = sht.getTemperature();
-      hum = sht.getHumidity();
-  } else {
-      Serial.print("Error in readSample()\n");
-  }
-      Serial.println(String(temp));
+        temp = sht.getTemperature();
+        hum = sht.getHumidity();
+      } else {
+          Serial.print("Error in readSample()\n");
+      }
     }
 }
 
