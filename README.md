@@ -2,6 +2,9 @@
 
 Experimental Apple HomeKit-compatible firmware for [airgradienthq/arduino](https://github.com/airgradienthq/arduino), based on [Mixiaoxiao/Arduino-HomeKit-ESP8266](https://github.com/Mixiaoxiao/Arduino-HomeKit-ESP8266/).
 
+## Warning
+
+**This is still a work in progress and likely will not work yet.**
 
 ## Usage
 

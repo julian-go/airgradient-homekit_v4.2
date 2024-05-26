@@ -184,26 +184,6 @@ void setup() {
   arduino_homekit_setup(&config);
 #endif // USE_HOMEKIT
 
-#ifdef USE_HOMEKIT
-  updateOLED2("Setting up", "Homekit", "");
-
-  // clear the EEPROM if it isn't empty or it starts with anything but "HAP"
-  char check[4];
-  for (uint8_t i=0; i < 4; i++) {
-    check[i] = EEPROM.read(i);
-  }
-  check[3] = '\0';
-  if (strcmp(check, "HAP") != 0 && strlen(check) > 0) {
-    Serial.println("Clearing Homekit EEPROM region");
-    for (uint16_t addr=0; addr < 1408; addr++) {
-      EEPROM.write(addr, 0);
-    }
-    EEPROM.commit();
-  }
-
-  arduino_homekit_setup(&config);
-#endif // USE_HOMEKIT
-
   updateOLED2("Warming Up", "Serial Number:", String(ESP.getChipId(), HEX));
   sgp41.begin(Wire);
   ag.CO2_Init();
