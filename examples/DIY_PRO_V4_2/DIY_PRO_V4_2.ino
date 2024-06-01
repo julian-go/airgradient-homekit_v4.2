@@ -15,7 +15,7 @@ The codes needs the following libraries installed:
 "Sensirion I2C SGP41" by Sensation Version 0.1.0
 "Sensirion Gas Index Algorithm" by Sensation Version 3.2.1
 "Arduino-SHT" by Johannes Winkelmann Version 1.2.2
-"HomeKit-ESP8266" by Mixiaoxiao Version 1.4.0 (from GitHub)
+"Arduino-HomeKit-ESP8266" by paullj1 (from GitHub, this version contains some fixes compared to Mixiaoxiaos)
 
 Configuration:
 Set "Tools" > "CPU Frequency" to 160MHz.
@@ -231,6 +231,7 @@ void loop() {
 #ifdef USE_HOMEKIT
   updateHomeKit();
 #endif // USE_HOMEHIT
+
 }
 
 #ifdef USE_HOMEKIT
