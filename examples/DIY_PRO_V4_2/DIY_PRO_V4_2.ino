@@ -37,6 +37,7 @@ CC BY-SA 4.0 Attribution-ShareAlike 4.0 International License
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
+#include <ESP8266WebServer.h>
 
 #include <EEPROM.h>
 #include "SHTSensor.h"
@@ -97,6 +98,9 @@ boolean displayTop = true;
 
 // set to true if you want to connect to wifi. You have 60 seconds to connect. Then it will go into an offline mode.
 boolean connectWIFI = true;
+
+const int port = 9926;
+ESP8266WebServer server(port);
 
 // CONFIGURATION END
 
@@ -212,6 +216,14 @@ void setup() {
   arduino_homekit_setup(&config);
 #endif // USE_HOMEKIT
 
+  {
+    server.on("/", HandleRoot);
+    server.on("/metrics", HandleRoot);
+    server.onNotFound(HandleNotFound);
+    
+    server.begin();
+  }
+
   updateOLED2("Warming up!", "", "S/N: " + String(ESP.getChipId(), HEX));
   sgp41.begin(Wire);
   ag.CO2_Init();
@@ -220,6 +232,8 @@ void setup() {
 }
 
 void loop() {
+  server.handleClient();
+
   currentMillis = millis();
   updateTVOC();
   updateOLED();
@@ -374,6 +388,108 @@ void setConfig() {
       updateOLED2("Something", "went", "wrong");
   }
 }
+
+void HandleRoot() {
+  server.send(200, "text/plain", GenerateMetrics());
+
+}
+
+void HandleNotFound() {
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/html", message);
+}
+
+String GenerateMetrics() {
+  String message = "";
+  String deviceId = String(ESP.getChipId(), HEX);
+  String idString = "{id=\"" + String(deviceId) + "\",mac=\"" + WiFi.macAddress().c_str() + "\"}";
+
+  {
+    message += "# HELP rco2 CO2 value, in ppm as ug/m^3\n";
+    message += "# TYPE rco2 gauge\n";
+    message += "rco2";
+    message += idString;
+    message += String(Co2);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP pm01 Particulate Matter PM1 value as ug/m^3\n";
+    message += "# TYPE pm01 gauge\n";
+    message += "pm01";
+    message += idString;
+    message += String(pm01);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP pm02 Particulate Matter PM2.5 value as ug/m^3\n";
+    message += "# TYPE pm02 gauge\n";
+    message += "pm02";
+    message += idString;
+    message += String(pm25);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP pm10 Particulate Matter PM10 value as ug/m^3\n";
+    message += "# TYPE pm10 gauge\n";
+    message += "pm10";
+    message += idString;
+    message += String(pm10);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP pm03 Particulate Matter PM0.3 count\n";
+    message += "# TYPE pm03 gauge\n";
+    message += "pm03";
+    message += idString;
+    message += String(pm03PCount);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP tvoc Total Volatile Organic Compounts, in parts per billion\n";
+    message += "# TYPE tvoc gauge\n";
+    message += "voc";
+    message += idString;
+    message += String(TVOC);
+    message += "\n# HELP nox Nitric Oxide, in parts per billion\n";
+    message += "# TYPE nox gauge\n";
+    message += "nox";
+    message += idString;
+    message += String(NOX);
+    message += "\n";
+  }
+
+  {
+    message += "# HELP atmp Temperature, in degrees Celsius\n";
+    message += "# TYPE atmp gauge\n";
+    message += "atmp";
+    message += idString;
+    message += String(temp);
+    message += "\n# HELP rhum Relative humidity, in percent\n";
+    message += "# TYPE rhum gauge\n";
+    message += "rhum";
+    message += idString;
+    message += String(hum);
+    message += "\n";
+  }
+
+  return message;
+}
+
 
 void updateTVOC()
 {
